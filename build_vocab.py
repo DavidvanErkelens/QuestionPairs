@@ -2,8 +2,9 @@
 import pandas as pd
 import numpy as np
 import pickle
-from gensim.models import KeyedVectors
 import nltk
+import string
+from gensim.models import KeyedVectors
 from nltk.corpus import stopwords
 
 
