@@ -1,0 +1,7 @@
+# skip data
+data/
+models/
+
+# Jupyter files
+.ipynb_checkpoints/
+*.ipynb
