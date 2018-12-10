@@ -8,10 +8,10 @@ import ast
 from torch.utils.data import Dataset, DataLoader
 from torch import nn
 
-class DavidLSTM(torch.nn.Module):
+class QuestionPairLSTM(torch.nn.Module):
 
     def __init__(self, embedding, hidden, num_layers, batch_size, device="cpu"):
-        super(DavidLSTM, self).__init__()
+        super(QuestionPairLSTM, self).__init__()
 
         # load embedding matrix
         emb_matrix = pickle.load(open("data/embedding_matrix.p", "rb"))
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     loss_fn = torch.nn.MSELoss()
     # loss_fn = torch.nn.SmoothL1Loss()
 
-    model = DavidLSTM(embedding_size, hidden_dimension, layers, batch_size, "cuda")
+    model = QuestionPairLSTM(embedding_size, hidden_dimension, layers, batch_size, "cuda")
     model.cuda()
 
     # Optimizer
