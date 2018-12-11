@@ -7,6 +7,7 @@ import torch
 import ast
 from torch.utils.data import Dataset, DataLoader
 from torch import nn
+import time
 
 class QuestionPairLSTM(torch.nn.Module):
 
@@ -19,7 +20,7 @@ class QuestionPairLSTM(torch.nn.Module):
         embeddings = torch.tensor(emb_matrix, dtype=torch.float).to(device)
         self.embedding = torch.nn.Embedding(embeddings.size(0), embeddings.size(1))
         self.embedding.weight = torch.nn.Parameter(embeddings)
-        # self.embedding.require_grad = False
+        self.embedding.require_grad = False
 
         self.num_layers = num_layers
         self.batch_size = batch_size
@@ -74,9 +75,9 @@ if __name__ == "__main__":
 
     # params
     embedding_size = 300
-    hidden_dimension = 30
-    layers = 1
-    batch_size = 32
+    hidden_dimension = 50
+    layers = 2
+    batch_size = 64
     epochs = 10
     sentence_size = 120
 
@@ -98,25 +99,36 @@ if __name__ == "__main__":
     model.cuda()
 
     # Optimizer
-    optimizer = torch.optim.Adam(list(model.parameters()), lr=0.001)
+    # optimizer = torch.optim.Adam(list(model.parameters()), lr=0.001)
+    optimizer = torch.optim.Adadelta(list(model.parameters()))
 
     # Epochs
     for ep in range(1, (epochs + 1)):
         
+        # Start time
+        start = time.time()
+
         # Show epoch number
         print("Running epoch " + str(ep))
         
+        # Load question pairs
         questions = LoadQuestions(tokenized, sentence_size)
         
+        # Calculate number of batches
         num_batches = int(len(questions) // batch_size)
+
+        loss_total = 0
 
         for x, (q1, q2, wanted) in enumerate(DataLoader(questions, batch_size, shuffle = True, drop_last = True)):
             
+            optimizer.zero_grad()
+
+            num = x + 1
             # How far are we?
-            perc = float(x) // num_batches * 100.0
+            perc = (float(num) / num_batches) * 100.0
 
             # Output
-            print('\rProcess: batch {:d} of {:d} ({:.3f}%)'.format(x, num_batches, perc), end='', flush=True)
+            print('\rProcess: batch {:d} of {:d} ({:.3f}%)'.format(num, num_batches, perc), end='', flush=True)
 
             # Get output for first questions
             output_q1, hidden_1 = model(q1)
@@ -129,13 +141,30 @@ if __name__ == "__main__":
 
             # Calculate loss
             loss = loss_fn(scores, wanted)
-                
+            loss_total += loss.item()
+
             # Backpropagate
             loss.backward()
 
             # Update weights
             optimizer.step()
-                
+
+
+        # Average loss
+        avg_loss = loss_total / float(num_batches)
+
         # Show loss
-        print('Loss: {:6.4f}'.format(loss.item()))
+        print('\nLoss: {:6.4f}'.format(avg_loss))
+
+        # Timing
+        end = time.time()
+
+        # Show running time
+        print('Running time: {:.5f} seconds'.format((end - start)))
+
+        # New line
+        print()
+
+        # Store model
+        torch.save(model.state_dict(), 'data/lstm_model_epoch_adadelta_v2_{:d}.pt'.format(ep))
 
