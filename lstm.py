@@ -76,9 +76,9 @@ if __name__ == "__main__":
     # params
     embedding_size = 300
     hidden_dimension = 50
-    layers = 2
+    layers = 1
     batch_size = 64
-    epochs = 10
+    epochs = 15
     sentence_size = 120
 
     # load vocab and convert to list
@@ -90,16 +90,21 @@ if __name__ == "__main__":
     # size of vocab
     V = len(vocab)
 
+    # Load tokenized questions
     tokenized = pd.read_csv("data/tokenized_questions.csv")
 
+    # Use MSE as loss function
     loss_fn = torch.nn.MSELoss()
-    # loss_fn = torch.nn.SmoothL1Loss()
 
+    # Calculate test and validation numbers
+    total = len(tokenized)
+    split = total - int(total / 10)
+
+    # Create the model and send to GPU
     model = QuestionPairLSTM(embedding_size, hidden_dimension, layers, batch_size, "cuda")
     model.cuda()
 
     # Optimizer
-    # optimizer = torch.optim.Adam(list(model.parameters()), lr=0.001)
     optimizer = torch.optim.Adadelta(list(model.parameters()))
 
     # Epochs
@@ -110,20 +115,19 @@ if __name__ == "__main__":
 
         # Show epoch number
         print("Running epoch " + str(ep))
-        
-        # Load question pairs
-        questions = LoadQuestions(tokenized, sentence_size)
-        
-        # Calculate number of batches
-        num_batches = int(len(questions) // batch_size)
 
+        # Keep track of total loss
         loss_total = 0
 
+        # Loop over question pairs
         for x, (q1, q2, wanted) in enumerate(DataLoader(questions, batch_size, shuffle = True, drop_last = True)):
             
+            # Reset gradients
             optimizer.zero_grad()
 
+            # Which number are we at?
             num = x + 1
+
             # How far are we?
             perc = (float(num) / num_batches) * 100.0
 
@@ -134,9 +138,11 @@ if __name__ == "__main__":
             output_q1, hidden_1 = model(q1)
             output_q2, hidden_2 = model(q2)
             
+            # Calculate the distance
             scores = exponent_neg_manhattan_distance(hidden_1[0].view(batch_size, -1),
                                                      hidden_2[0].view(batch_size, -1))
 
+            # Send wanted value to correct device
             wanted = wanted.to(model.device)
 
             # Calculate loss
@@ -165,6 +171,60 @@ if __name__ == "__main__":
         # New line
         print()
 
+        # Get validation questions
+        test_questions = LoadQuestions(tokenized[split:total], sentence_size)
+
+        # Store total validation loss
+        loss_test_total = 0.0
+
+        # Calculate number of batches
+        num_test_batches = int(len(test_questions) // batch_size)
+
+        # Do not use gradients
+        with torch.no_grad():
+
+            # Loop over question pairs
+            for x, (q1, q2, wanted) in enumerate(DataLoader(test_questions, batch_size, shuffle = True, drop_last = True)):
+
+                # Get current number
+                num = x + 1
+
+                # How far are we?
+                perc = (float(num) / num_batches) * 100.0
+
+                # Output
+                print('\r[TEST] Process: batch {:d} of {:d} ({:.3f}%)'.format(num, num_batches, perc), end='', flush=True)
+
+                # Get output for first questions
+                output_q1, hidden_1 = model(q1)
+                output_q2, hidden_2 = model(q2)
+                
+                # Calculate score
+                scores = exponent_neg_manhattan_distance(hidden_1[0].view(batch_size, -1),
+                                                        hidden_2[0].view(batch_size, -1))
+
+                # Send values we want to GPU
+                wanted = wanted.to(model.device)
+
+                # Calculate loss
+                loss = loss_fn(scores, wanted)
+                loss_test_total += loss.item()
+
+        # Average loss
+        test_avg_loss = loss_total / float(num_batches)
+
+        # Show loss
+        print('\nTest loss: {:6.4f}'.format(test_avg_loss))
+
+        # Timing
+        test_end = time.time()
+
+        # Show running time
+        print('Running time: {:.5f} seconds'.format((test_end - end)))
+
+        # Two newlines between epochs
+        print("\n")
+
         # Store model
-        torch.save(model.state_dict(), 'data/lstm_model_epoch_adadelta_v2_{:d}.pt'.format(ep))
+        torch.save(model.state_dict(), 'data/lstm_model_epoch_adadelta_v4_{:d}.pt'.format(ep))
 

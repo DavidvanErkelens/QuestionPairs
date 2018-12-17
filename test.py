@@ -74,8 +74,8 @@ if __name__ == "__main__":
 
     # params
     embedding_size = 300
-    hidden_dimension = 50
-    layers = 1
+    hidden_dimension = 40
+    layers = 3
     epochs = 10
     sentence_size = 120
 
@@ -97,15 +97,12 @@ if __name__ == "__main__":
     embedding.weight = torch.nn.Parameter(embeddings)
 
     # Epochs
-    for ep in range(9,10):
+    for ep in [2,5]:
         
         model = QuestionPairLSTM(embedding_size, hidden_dimension, layers, batch_size, "cuda")
         model.cuda()
-        model.load_state_dict(torch.load('data/lstm_model_epoch_adadelta_' + str(ep + 1) + '.pt'))
+        model.load_state_dict(torch.load('data/lstm_model_epoch_adadelta_v3_' + str(ep) + '.pt'))
         model.eval()
-
-        # # Show epoch number
-        # print("Running epoch " + str(ep))
         
         # Load question pairs
         questions = LoadQuestions(tokenized, sentence_size)
@@ -119,9 +116,6 @@ if __name__ == "__main__":
         with torch.no_grad():
 
             for x, (idlist, q1, q2) in enumerate(DataLoader(questions, batch_size, shuffle = False, drop_last = False)):
-            # for i, q in enumerate(questions):
-
-                # print('\rEpoch {:d}, question {:d}'.format(ep, i), end='', flush=True)
 
                 num = x + 1
                 # How far are we?
@@ -130,39 +124,26 @@ if __name__ == "__main__":
                 # Output
                 print('\rProcess: batch {:d} of {:d} ({:.3f}%)'.format(num, num_batches, perc), end='', flush=True)
 
-                # print(ids.numpy())
-
                 for x in idlist.numpy():
                     ids.append(x)
 
-                output_q1, hidden_1 = model(embedding(q1))
-                output_q2, hidden_2 = model(embedding(q2))
+                output_q1, hidden_1 = model(embedding(q1).to(model.device))
+                output_q2, hidden_2 = model(embedding(q2).to(model.device))
                 
                 scores = exponent_neg_manhattan_distance(hidden_1[0].view(len(idlist), -1),
                                                          hidden_2[0].view(len(idlist), -1))
 
-                for x in scores.numpy():
+                for x in scores.cpu().numpy():
                     outputs.append(int(round(x)))
 
-                # print(scores)
 
-                # dataframe = pd.DataFrame({
-                #     'test_id': ids,
-                #     'is_duplicate'
-                # })
-
-
-            # print(r)
-            # if i > 15:
-            #     break
         dataframe = pd.DataFrame({
             'test_id': ids,
             'is_duplicate': outputs
         })
 
-        # print(dataframe)
 
         print()
         print("Storing dataframe...")
 
-        dataframe.to_csv('data/output_epoch_adadelta_{:d}.csv'.format(ep), index=False, columns=['test_id', 'is_duplicate'])
+        dataframe.to_csv('data/output_epoch_adadelta_v4_{:d}.csv'.format(ep), index=False, columns=['test_id', 'is_duplicate'])
