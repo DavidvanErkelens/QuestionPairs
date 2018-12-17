@@ -217,7 +217,7 @@ if __name__ == "__main__":
                 loss_test_total += loss.item()
 
         # Average loss
-        test_avg_loss = loss_test_total / float(num_batches)
+        test_avg_loss = loss_test_total / float(num_test_batches)
 
         # Show loss
         print('\nTest loss: {:6.4f}'.format(test_avg_loss))
