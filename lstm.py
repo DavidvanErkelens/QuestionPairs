@@ -119,6 +119,12 @@ if __name__ == "__main__":
         # Keep track of total loss
         loss_total = 0
 
+        # Get questions
+        questions = LoadQuestions(tokenized[0:split], sentence_size)
+
+         # Calculate number of batches
+        num_batches = int(len(questions) // batch_size)
+
         # Loop over question pairs
         for x, (q1, q2, wanted) in enumerate(DataLoader(questions, batch_size, shuffle = True, drop_last = True)):
             
@@ -211,7 +217,7 @@ if __name__ == "__main__":
                 loss_test_total += loss.item()
 
         # Average loss
-        test_avg_loss = loss_total / float(num_batches)
+        test_avg_loss = loss_test_total / float(num_batches)
 
         # Show loss
         print('\nTest loss: {:6.4f}'.format(test_avg_loss))
