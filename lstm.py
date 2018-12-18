@@ -199,7 +199,7 @@ if __name__ == "__main__":
                 perc = (float(num) / num_batches) * 100.0
 
                 # Output
-                print('\r[TEST] Process: batch {:d} of {:d} ({:.3f}%)'.format(num, num_batches, perc), end='', flush=True)
+                print('\r[TEST] Process: batch {:d} of {:d} ({:.3f}%)'.format(num, num_test_batches, perc), end='', flush=True)
 
                 # Get output for first questions
                 output_q1, hidden_1 = model(q1)
