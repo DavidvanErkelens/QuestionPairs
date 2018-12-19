@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch import nn
 import time
 
+# Model definition
 class QuestionPairLSTM(torch.nn.Module):
 
     def __init__(self, embedding, hidden, num_layers, batch_size, device="cpu"):
@@ -17,32 +18,34 @@ class QuestionPairLSTM(torch.nn.Module):
         # load embedding matrix
         emb_matrix = pickle.load(open("data/embedding_matrix.p", "rb"))
 
+        # Load word2vec embeddings (which will not be trained)
         embeddings = torch.tensor(emb_matrix, dtype=torch.float).to(device)
         self.embedding = torch.nn.Embedding(embeddings.size(0), embeddings.size(1))
         self.embedding.weight = torch.nn.Parameter(embeddings)
         self.embedding.require_grad = False
 
+        #  Set properties
         self.num_layers = num_layers
         self.batch_size = batch_size
         self.hidden = hidden
 
+        # Make sure data is sent to correct device
         self.device = device
         self.lstm = torch.nn.LSTM(embedding, hidden, num_layers, batch_first=True)
 
-        # self.hidden = self.zero_hidden()
 
-    
+    # Forward pass    
     def forward(self, q):
         x = self.embedding(q.to(self.device))
         y = self.zero_hidden()
         return self.lstm(x, y)
 
-        # etc etc
-
+    # Create zero start state
     def zero_hidden(self):
         return (torch.zeros(self.num_layers, self.batch_size, self.hidden).to(self.device),
                 torch.zeros(self.num_layers, self.batch_size, self.hidden).to(self.device))
 
+# Question loader
 class LoadQuestions(Dataset):
     def __init__(self, tok, size):
         self.tok = tok
@@ -66,9 +69,11 @@ class LoadQuestions(Dataset):
         q1[(self.size - len(q1_raw)):self.size] = q1_raw
         q2[(self.size - len(q2_raw)):self.size] = q2_raw
         
+        # Return tenstor
         return (torch.tensor(q1), torch.tensor(q2), torch.tensor(float(s['is_duplicate'])))
 
-def exponent_neg_manhattan_distance(left, right):
+# Exponent of negative manhattan distance - returns value [0,1]
+def man_dist(left, right):
     return torch.exp(-torch.sum(torch.abs(left-right), dim=1))
 
 if __name__ == "__main__":
@@ -145,7 +150,7 @@ if __name__ == "__main__":
             output_q2, hidden_2 = model(q2)
             
             # Calculate the distance
-            scores = exponent_neg_manhattan_distance(hidden_1[0].view(batch_size, -1),
+            scores = man_dist(hidden_1[0].view(batch_size, -1),
                                                      hidden_2[0].view(batch_size, -1))
 
             # Send wanted value to correct device
@@ -206,7 +211,7 @@ if __name__ == "__main__":
                 output_q2, hidden_2 = model(q2)
                 
                 # Calculate score
-                scores = exponent_neg_manhattan_distance(hidden_1[0].view(batch_size, -1),
+                scores = man_dist(hidden_1[0].view(batch_size, -1),
                                                         hidden_2[0].view(batch_size, -1))
 
                 # Send values we want to GPU
